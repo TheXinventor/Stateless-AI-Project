@@ -1,26 +1,51 @@
 import numpy as np
 
-class model():
-    matrix: np.ndarray
-    maskCount: np.uint32
+class Model:
 
-def getMask(inLayer: np.ndarray, outLayer: np.ndarray) -> np.ndarray:
-    edges = np.ndarray((inLayer.shape[0], outLayer.shape[0]))
-    for x in range(0, inLayer.shape[0]):
-        for y in range(0, outLayer.shape[0]):
-            if np.logical_xor(inLayer[x], outLayer[y]):
-                edges[x][y] = 0
-            else:
-                edges[x][y] = 1
-    return edges
+    # Class functions
 
-def addMask(model: model, mask: np.ndarray):
-    model.matrix = (model.matrix * model.maskCount + mask) / (model.maskCount + 1)
-    model.maskCount += 1
+    def getMask(input, output):
+        inputSize = np.size(input)
+        outputSize = np.size(output)
 
-def removeMask(model: model, mask: np.ndarray):
-    model.matrix = (model.matrix * model.maskCount - mask) / (model.maskCount - 1)
-    model.maskCount -= 1
+        mask = np.ndarray((inputSize, outputSize))
+        for x in range(0, inputSize):
+            for y in range(0, outputSize):
+                mask[x][y] = Model.getMaskCell(input[x], output[y])
+        return mask
+                
+    def getMaskCell(inputVal, outputVal):
+        # Calculates standard normal distribution of difference between values
+        return np.pow(np.e, -np.square(inputVal - outputVal) / 2) / np.sqrt(2 * np.pi)
 
-def getOutLayer(model: model, inLayer: np.ndarray) -> np.ndarray:
-    return inLayer.reshape(-1, 1) * model.matrix
+    # Object functions
+
+    def __init__(self, inputSize: int, outputSize: int):
+        self.inputSize = inputSize
+        self.outputSize = outputSize
+
+        self.matrix = np.ndarray((inputSize, outputSize))
+        self.trainCount = np.uint64()
+
+    def train(self, input, output):
+        self.matrix = (self.matrix * self.trainCount + Model.getMask(input, output)) / (self.trainCount + 1)
+        self.trainCount += 1
+
+    def untrain(self, input, output):
+        self.matrix = (self.matrix * self.trainCount - Model.getMask(input, output)) / (self.trainCount - 1)
+        self.trainCount -= 1
+    
+    # TODO Fix errors with trainList and untrainList
+    def trainList(self, data: list[tuple[list, list]]):
+        maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
+        self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount + len(data))
+        self.matrix += len(data)
+    
+    def untrainList(self, data: list[tuple[list, list]]):
+        maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
+        self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount - len(data))
+        self.matrix -= len(data)
+
+
+    def query(self, input):
+        return np.matmul(input, self.matrix).flatten()
