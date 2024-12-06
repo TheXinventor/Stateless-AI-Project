@@ -17,35 +17,33 @@ class Model:
     def getMaskCell(inputVal, outputVal):
         # Calculates standard normal distribution of difference between values
         return np.pow(np.e, -np.square(inputVal - outputVal) / 2) / np.sqrt(2 * np.pi)
+    
+    # Math functions
+    
+    def gaussianDist(x, mean, variance):
+        return np.pow(np.e, -np.square(x - mean) / (2 * variance)) / np.sqrt(2 * np.pi * variance)
+    
+    def linear(x):
+        return x
 
     # Object functions
 
-    def __init__(self, inputSize: int, outputSize: int):
-        self.inputSize = inputSize
-        self.outputSize = outputSize
+    def __init__(self, layerSizes: list[int], activationFunc = Model.linear, variance = 1.0):
+        
+        assert len(layerSizes) >= 2
 
-        self.matrix = np.ndarray((inputSize, outputSize))
+        self.layerSizes = layerSizes
+        self.activationFunc = activationFunc
+        self.variance = variance
+
+        self.layerEdges = [np.ndarray([layerSizes[i], layerSizes[i+1]]) for i in range(0, len(layerSizes) - 1)]
         self.trainCount = np.uint64()
 
     def train(self, input, output):
-        self.matrix = (self.matrix * self.trainCount + Model.getMask(input, output)) / (self.trainCount + 1)
-        self.trainCount += 1
+        pass
 
     def untrain(self, input, output):
-        self.matrix = (self.matrix * self.trainCount - Model.getMask(input, output)) / (self.trainCount - 1)
-        self.trainCount -= 1
-    
-    # TODO Fix errors with trainList and untrainList
-    def trainList(self, data: list[tuple[list, list]]):
-        maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
-        self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount + len(data))
-        self.matrix += len(data)
-    
-    def untrainList(self, data: list[tuple[list, list]]):
-        maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
-        self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount - len(data))
-        self.matrix -= len(data)
-
+        pass
 
     def query(self, input):
-        return np.matmul(input, self.matrix).flatten()
+        pass
