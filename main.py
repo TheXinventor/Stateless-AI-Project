@@ -17,14 +17,10 @@ class Model:
 
         # Back propogation
         for i in range(len(layerSizes) - 2, -1, -1):
-            mask[i] = np.ndarray(
-                [
-                    [
-                        Model.getMaskCell(inputVal, outputVal)
-                    ] for inputVal in initial[i]
-                ] for outputVal in actual
-            )
+            mask[i] = [[ Model.getMaskCell(inputVal, outputVal) for inputVal in initial[i] ] for outputVal in actual ] 
             actual = [np.sum([mask[i][row][col] for row in range(0, len(actual))]) for col in range(0, len(initial[i]))]
+        
+        print(mask)
 
         return mask
 
@@ -52,12 +48,12 @@ class Model:
 
     # Object functions
 
-    def __init__(self, layerSizes: list[int], activationFunc = Model.linear, variance = 1.0):
+    def __init__(self, layerSizes: list[int], variance = 1.0):
         
         assert len(layerSizes) >= 2
 
         self.layerSizes = layerSizes
-        self.activationFunc = activationFunc
+        # self.activationFunc = activationFunc
         self.variance = variance
 
         self.layerEdges = [np.ndarray([layerSizes[i], layerSizes[i+1]]) for i in range(0, len(layerSizes) - 1)]
