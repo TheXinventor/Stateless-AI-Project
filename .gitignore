@@ -1,4 +1,4 @@
 dataset
 test.py
-.vscode/launch.json
-__pycache__/main.cpython-311.pyc
+.vscode
+__pycache__
