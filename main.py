@@ -94,13 +94,13 @@ class Mask:
         product = np.prod(layerSizes)
         for i in range(0, len(layerSizes) - 1):
             self.tensor.setLayer(i, self.tensor.getLayer(i) * layerSizes[i] * layerSizes[i+1] / product)
-    
+
     def initRecursive(self, layerI, nodeI, inputVal, output):
 
         # If on final layer, compare input and output
         if layerI == self.tensor.getLayerCount():
-            return Model.gaussianDist(inputVal, output[nodeI], 1.0)
-        
+            return (np.exp((inputVal - output[nodeI]) ** 2) * 2.0 * np.pi) ** -0.5
+
         # Loop through edges from this node
         nodeVal = 0.0
 
@@ -115,65 +115,11 @@ class Mask:
 
             # Add edge to total
             nodeVal += edgeVal
-        
+
         # Return sum of outgoing edges
         return nodeVal
 
 class Model:
-
-    '''
-    # Class functions
-
-    def getMask(input, output, layerSizes: list[int]):
-
-        mask = [np.ndarray([layerSizes[i], layerSizes[i+1]]) for i in range(0, len(layerSizes) - 1)]
-
-        # Loop through every path through the network
-
-        # Get normal distribution of difference between input and output
-
-        # 
-
-        return mask
-    
-    def getMaskRecursive(nodeIndex, layerIndex, layerSizes, inputVal, output):
-
-        # If on final layer, compare input and output
-        if layerIndex == len(layerSizes) - 1:
-            return Model.gaussianDist(inputVal, output[nodeIndex], 1.0)
-        
-        # Loop through edges from this node
-        for edgeIndex in range(0, len(layerSizes[layerIndex+1])):
-
-            # Get value from next iteration
-            edgeVal = getMaskRecursive(edgeIndex, layerIndex+1, layerSizes, inputVal, output)
-
-            # Add edge value to mask
-            output[layerIndex][nodeIndex][edgeIndex] += edgeVal
-
-    def getMaskLayer(input, output):
-        inputSize = np.size(input)
-        outputSize = np.size(output)
-
-        maskLayer = np.ndarray((inputSize, outputSize))
-        for x in range(0, inputSize):
-            for y in range(0, outputSize):
-                maskLayer[x][y] = Model.getMaskCell(input[x], output[y])
-        return maskLayer
-                
-    def getMaskCell(inputVal, outputVal):
-        # Calculates standard normal distribution of difference between values
-        return np.pow(np.e, -np.square(inputVal - outputVal) / 2) / np.sqrt(2 * np.pi)
-    
-    '''
-    
-    # Math functions
-    
-    def gaussianDist(x, mean, variance):
-        return np.power(np.e, -np.square(x - mean) / (2 * variance)) / np.sqrt(2 * np.pi * variance)
-    
-    def linear(x):
-        return x
 
     # Object functions
 
@@ -188,48 +134,23 @@ class Model:
         self.tensor = (self.tensor * self.trainCount + mask.tensor) / (self.trainCount + 1)
         self.trainCount += 1
 
+    def untrain(self, input, output):
+        pass
+
     def query(self, input):
         nodes = input
         for i in range(0, self.tensor.getLayerCount()):
             nodes = np.matmul(nodes, self.tensor.getLayer(i))
         return nodes
-    
-    '''
-    def train(self, input, output):
-        mask = Model.getMask(input, output, self.layerSizes)
-        for i in range(0, len(self.layerSizes) - 1):
-            self.layerEdges[i] = (self.layerEdges[i] * self.trainCount + mask[i]) / (self.trainCount + 1)
-        self.trainCount += 1
 
-    def untrain(self, input, output):
-        mask = Model.getMask(input, output, self.layerSizes)
-        for i in range(0, len(self.layerSizes) - 1):
-            self.layerEdges[i] = (self.layerEdges[i] * self.trainCount - mask[i]) / (self.trainCount - 1)
-        self.trainCount -= 1
-
-    def query(self, input):
-        nodes = input
-        for layer in self.layerEdges:
-            nodes = np.matmul(nodes, layer)
-        return nodes
-    
-    def getMaskRecursive(self, nodeIndex, layerIndex, inputVal, output):
-
-        # If on final layer, compare input and output
-        if layerIndex == len(self.layerSizes) - 1:
-            return Model.gaussianDist(inputVal, output[nodeIndex], 1.0)
-        
-        # Loop through edges from this node
-        for edgeIndex in range(0, len(layerSizes[layerIndex+1])):
-
-            # Get value from next iteration
-            edgeVal = self.getMaskRecursive(edgeIndex, layerIndex+1, inputVal, output)
-
-            # Add edge value to mask
-            output[layerIndex][nodeIndex][edgeIndex] += edgeVal
-    '''
-
-
-
+    def trainAll(self, ioList: list[tuple[list, list]]):
+        self.tensor *= self.trainCount
+        for i in range(0, len(ioList)):
+            print("Training example " + str(i) + "/" + str(len(ioList)))
+            io = ioList[i]
+            mask = Mask(io[0], io[1], self.tensor.getNodeCounts())
+            self.tensor += mask.tensor
+        self.trainCount += len(ioList)
+        self.tensor = self.tensor / self.trainCount
     
 
