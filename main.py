@@ -16,7 +16,7 @@ class Model:
                 
     def getMaskCell(inputVal, outputVal):
         # Calculates standard normal distribution of difference between values
-        return np.pow(np.e, -np.square(inputVal - outputVal) / 2) / np.sqrt(2 * np.pi)
+        return np.power(np.e, -np.square(inputVal - outputVal) / 2) / np.sqrt(2 * np.pi)
 
     # Object functions
 
