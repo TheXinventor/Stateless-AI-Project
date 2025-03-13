@@ -15,7 +15,7 @@ class Tensor:
             nodeCount = layerSizes[i]
             edgeCount = layerSizes[i+1]
 
-            self.data.append(np.zeros((nodeCount, edgeCount)))
+            self.data.append(np.ones((nodeCount, edgeCount)))
     
     def __str__(self):
         outStr = ""
@@ -42,6 +42,23 @@ class Tensor:
         for i in range(0, self.getLayerCount()):
             output.setLayer(i, self.getLayer(i) / other)
         return output
+
+    def forwardPass(self, input: list[float]):
+        assert len(input) == self.getNodeCount(0)
+        nodes = input
+        for i in range(0, self.getLayerCount()):
+            nodes = np.matmul(nodes, self.getLayer(i))
+            nodes = 1.0 / (1.0 + np.exp(-nodes))
+        return nodes
+
+    def forwardPassDetailed(self, input: list[float]):
+        assert len(input) == self.getNodeCount(0)
+        layers = [input]
+        for i in range(0, self.getLayerCount()):
+            layers.append(np.matmul(layers[-1], self.getLayer(i)))
+            layers[-1] = 1.0 / (1.0 + np.exp(-layers[-1]))
+        return layers
+
     
     # Getters
     def getNodeCounts(self):
@@ -79,58 +96,65 @@ class Mask:
 
     tensor: Tensor
 
-    def __init__(self, input, output, layerSizes):
+    def __init__(self, input, output, layerSizes, lr = 1.0, maxError = 0.2, maxEpoch = 100):
 
         assert len(input) == layerSizes[0]
         assert len(output) == layerSizes[-1]
 
         self.tensor = Tensor(layerSizes)
+        epoch = 0
 
-        # Add up all routes
-        for i in range(0, len(input)):
-            self.initRecursive(0, i, input[i], output)
+        while np.sum(np.abs(output - self.tensor.forwardPass(input))) > maxError and epoch < maxEpoch:
 
-        # Divide each edge by no. of routes using that edge
-        product = np.prod(layerSizes)
-        for i in range(0, len(layerSizes) - 1):
-            self.tensor.setLayer(i, self.tensor.getLayer(i) * layerSizes[i] * layerSizes[i+1] / product)
+            # Forward pass
+            actual = self.tensor.forwardPassDetailed(input)
 
-    def initRecursive(self, layerI, nodeI, inputVal, output):
+            # Backpropogate nodes
+            error = [output - actual[-1]]
+            for i in range(self.tensor.getLayerCount() - 1, 0, -1):
+                error.append(
+                    actual[i] * (1.0 - actual[i]) * np.matmul(
+                        error[-1],
+                        np.rot90(
+                            np.fliplr(
+                                self.tensor.getLayer(i)
+                            )
+                        )
+                    )
+                )
+            error.reverse()
 
-        # If on final layer, compare input and output
-        if layerI == self.tensor.getLayerCount():
-            return (np.exp((inputVal - output[nodeI]) ** 2) * 2.0 * np.pi) ** -0.5
+            # Update weights
+            for i in range(0, self.tensor.getLayerCount()):
+                for j in range(0, self.tensor.getNodeCount(i)):
+                    for k in range(0, self.tensor.getNodeCount(i+1)):
+                        self.tensor.setEdge(i, j, k, lr * actual[i][j] * error[i][k])
 
-        # Loop through edges from this node
-        nodeVal = 0.0
-
-        for edgeI in range(0, self.tensor.getNodeCount(layerI+1)):
-
-            # Get value from next iteration
-            edgeVal = self.initRecursive(layerI+1, edgeI, inputVal, output)
-
-            # Add edge value to mask
-            edgeTotal = self.tensor.getEdge(layerI, nodeI, edgeI) + edgeVal
-            self.tensor.setEdge(layerI, nodeI, edgeI, edgeTotal)
-
-            # Add edge to total
-            nodeVal += edgeVal
-
-        # Return sum of outgoing edges
-        return nodeVal
+            epoch += 1
 
 class Model:
 
     # Object functions
 
-    def __init__(self, layerSizes: list[int], variance = 1.0):
-        self.variance = variance
-        self.trainCount = np.uint64()
+    def __init__(self, layerSizes: list[int], lr = 1.0, maxError = 0.2, maxEpoch = 100):
+        self.lr = lr
+        self.maxError = maxError
+        self.maxEpoch = maxEpoch
 
+        self.trainCount = np.uint64()
         self.tensor = Tensor(layerSizes)
 
+        #self.iotype = np.dtype([("input", np.float32, layerSizes[0]), ("output", np.float32, layerSizes[-1])])
+
     def train(self, input, output):
-        mask = Mask(input, output, self.tensor.getNodeCounts())
+        mask = Mask(
+            input,
+            output,
+            self.tensor.getNodeCounts(),
+            lr = self.lr,
+            maxError = self.maxError,
+            maxEpoch = self.maxEpoch
+        )
         self.tensor = (self.tensor * self.trainCount + mask.tensor) / (self.trainCount + 1)
         self.trainCount += 1
 
@@ -138,10 +162,7 @@ class Model:
         pass
 
     def query(self, input):
-        nodes = input
-        for i in range(0, self.tensor.getLayerCount()):
-            nodes = np.matmul(nodes, self.tensor.getLayer(i))
-        return nodes
+        return self.tensor.forwardPass(input)
 
     def trainAll(self, ioList: list[tuple[list, list]]):
         self.tensor *= self.trainCount
