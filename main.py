@@ -39,12 +39,12 @@ class Model:
     def trainList(self, data: list[tuple[list, list]]):
         maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
         self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount + len(data))
-        self.matrix += len(data)
+        self.trainCount+= len(data)
     
     def untrainList(self, data: list[tuple[list, list]]):
         maskSum = np.sum([Model.getMask(unit[0], unit[1]) for unit in data])
         self.matrix = (self.matrix * self.trainCount + maskSum) / (self.trainCount - len(data))
-        self.matrix -= len(data)
+        self.trainCount -= len(data)
 
 
     def query(self, input):
